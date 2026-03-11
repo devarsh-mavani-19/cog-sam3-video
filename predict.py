@@ -12,9 +12,11 @@ import numpy as np
 from PIL import Image
 from cog import BasePredictor, Input, Path
 from transformers import Sam3VideoModel, Sam3VideoProcessor
+from transformers import CLIPModel, CLIPProcessor
 
 MODEL_PATH = "checkpoints"
 MODEL_URL = "https://weights.replicate.delivery/default/facebook/sam3/model.tar"
+CLIP_MODEL_ID = "openai/clip-vit-large-patch14-336"
 
 def download_weights(url, dest):
     start = time.time()
@@ -38,6 +40,12 @@ class Predictor(BasePredictor):
         self.model = Sam3VideoModel.from_pretrained(MODEL_PATH).to(self.device, dtype=self.dtype).eval()
         self.processor = Sam3VideoProcessor.from_pretrained(MODEL_PATH)
         print("Model loaded successfully!")
+
+        print("Loading CLIP model...")
+        self.clip_model = CLIPModel.from_pretrained(CLIP_MODEL_ID).to(self.device, dtype=self.dtype).eval()
+        self.clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
+        print("CLIP model loaded!")
+
 
     def predict(
         self,
@@ -92,6 +100,47 @@ class Predictor(BasePredictor):
             raise ValueError("Could not load frames from video")
         
         print(f"Loaded {len(frames)} frames. FPS: {original_fps}")
+
+        # extract CLIP embeddings for each frame
+        print("Extracting CLIP embeddings...")
+        clip_embeddings = []
+        batch_size = 16  # process frames in batches to avoid OOM
+
+        for i in range(0, len(frames), batch_size):
+            batch_frames = frames[i:i + batch_size]
+            inputs = self.clip_processor(images=batch_frames, return_tensors="pt").to(self.device, dtype=self.dtype)
+
+            with torch.no_grad():
+                image_features = self.clip_model.get_image_features(**inputs)
+                # L2 normalize so cosine similarity = dot product
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+
+            clip_embeddings.append(image_features.cpu())
+            print(f"  Processed frames {i} to {i + len(batch_frames) - 1}")
+
+        clip_embeddings = torch.cat(clip_embeddings, dim=0)  # [num_frames, 768]
+
+        print(f"\nCLIP embeddings shape: {clip_embeddings.shape}")
+        print(f"CLIP embeddings:\n{clip_embeddings}")
+
+        # quick text search demo
+        if prompt:
+            text_inputs = self.clip_processor(text=[prompt], return_tensors="pt").to(self.device, dtype=self.dtype)
+            with torch.no_grad():
+                text_features = self.clip_model.get_text_features(**text_inputs)
+                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+            similarities = (clip_embeddings @ text_features.cpu().T).squeeze(-1)  # [num_frames]
+            top_k = min(5, len(frames))
+            top_indices = similarities.topk(top_k).indices.tolist()
+            top_scores = similarities.topk(top_k).values.tolist()
+
+            print(f"\nText query: '{prompt}'")
+            print(f"Top {top_k} matching frames:")
+            for rank, (idx, score) in enumerate(zip(top_indices, top_scores)):
+                timestamp = idx / original_fps
+                print(f"  #{rank + 1}: frame {idx} (t={timestamp:.2f}s) — similarity: {score:.4f}")
+
 
         # 2. Initialize inference session
         # SAM3 Video allows loading the whole video into a session
