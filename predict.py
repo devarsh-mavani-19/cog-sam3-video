@@ -16,7 +16,7 @@ from transformers import CLIPModel, CLIPProcessor
 
 MODEL_PATH = "checkpoints"
 MODEL_URL = "https://weights.replicate.delivery/default/facebook/sam3/model.tar"
-CLIP_MODEL_ID = "openai/clip-vit-large-patch14-336"
+CLIP_MODEL_PATH = "/src/clip-weights"
 
 def download_weights(url, dest):
     start = time.time()
@@ -42,8 +42,8 @@ class Predictor(BasePredictor):
         print("Model loaded successfully!")
 
         print("Loading CLIP model...")
-        self.clip_model = CLIPModel.from_pretrained(CLIP_MODEL_ID).to(self.device, dtype=self.dtype).eval()
-        self.clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
+        self.clip_model = CLIPModel.from_pretrained(CLIP_MODEL_PATH).to(self.device, dtype=self.dtype).eval()
+        self.clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_PATH)
         print("CLIP model loaded!")
 
 
