@@ -42,7 +42,7 @@ class Predictor(BasePredictor):
         print("Model loaded successfully!")
 
         print("Loading CLIP model...")
-        self.clip_model = CLIPModel.from_pretrained(CLIP_MODEL_PATH, use_safetensors=False).to(self.device, dtype=self.dtype).eval()
+        self.clip_model = CLIPModel.from_pretrained(CLIP_MODEL_PATH).to(self.device, dtype=self.dtype).eval()
         self.clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_PATH)
         print("CLIP model loaded!")
 
