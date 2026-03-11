@@ -17,7 +17,7 @@ build:
 
   run:
     - curl -o /usr/local/bin/pget -L "https://github.com/replicate/pget/releases/download/v0.11.0/pget_linux_x86_64" && chmod +x /usr/local/bin/pget
-    - pip install huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download('openai/clip-vit-large-patch14-336', local_dir='/src/clip-weights')"
+    - pip install huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download('openai/clip-vit-large-patch14-336', local_dir='/src/clip-weights', ignore_patterns=['*.msgpack', '*.h5', 'tf_*', 'flax_*'])" && ls -lh /src/clip-weights/pytorch_model.bin
 
 # predict.py defines how predictions are run on your model
 predict: "predict.py:Predictor"
