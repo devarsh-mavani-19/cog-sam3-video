@@ -16,8 +16,22 @@ build:
   python_requirements: requirements.txt
 
   run:
-    - curl -o /usr/local/bin/pget -L "https://github.com/replicate/pget/releases/download/v0.11.0/pget_linux_x86_64" && chmod +x /usr/local/bin/pget
-    - pip install huggingface_hub safetensors && python -c "from huggingface_hub import snapshot_download; snapshot_download('openai/clip-vit-large-patch14-336', local_dir='/src/clip-weights', ignore_patterns=['*.msgpack', '*.h5', 'tf_*', 'flax_*'])" && python -c "import torch; from safetensors.torch import save_file; sd = torch.load('/src/clip-weights/pytorch_model.bin', map_location='cpu', weights_only=True); sd = {k: v.contiguous() for k, v in sd.items()}; save_file(sd, '/src/clip-weights/model.safetensors')" && rm /src/clip-weights/pytorch_model.bin && ls -lh /src/clip-weights/model.safetensors
+    - command: curl -o /usr/local/bin/pget -L "https://github.com/replicate/pget/releases/download/v0.11.0/pget_linux_x86_64" && chmod +x /usr/local/bin/pget
+    - command: pip install huggingface_hub safetensors
+    - command: >-
+        python -c "
+        from huggingface_hub import snapshot_download;
+        snapshot_download('openai/clip-vit-large-patch14-336', local_dir='/src/clip-weights', ignore_patterns=['*.msgpack', '*.h5', 'tf_*', 'flax_*'])
+        "
+    - command: >-
+        python -c "
+        import torch;
+        from safetensors.torch import save_file;
+        sd = torch.load('/src/clip-weights/pytorch_model.bin', map_location='cpu', weights_only=True);
+        sd = dict((k, v.contiguous()) for k, v in sd.items());
+        save_file(sd, '/src/clip-weights/model.safetensors')
+        "
+    - command: rm /src/clip-weights/pytorch_model.bin
 
 # predict.py defines how predictions are run on your model
 predict: "predict.py:Predictor"
